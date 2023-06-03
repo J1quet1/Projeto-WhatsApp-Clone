@@ -1,5 +1,6 @@
 import {Format} from './../util/Format';
 import {CameraController} from './CameraController';
+import {MicrophoneController} from './MicrophoneController';
 import {DocumentPreviewController} from './DocumentPreviewController';
 
 export  class WhatsAppController {
@@ -277,16 +278,58 @@ export  class WhatsAppController {
 
         this.el.inputDocument.on('change', e=>{
             
-            if(this.el.inputDocument.files.lenght){
-            let file = this.el.inputDocument.files[0];
-            this._documentPreviewController = new DocumentPreviewController(file);
-            this._documentPreviewController.getPreviewData().then(data=>{
+            if(!this.el.inputDocument.files.lenght){
 
-                console.log('ok', data);
+                this.el.panelDocumentPreview.css({
+                    'height': '1%'
+                });
+
+            let file = this.el.inputDocument.files[0];
+
+            this._documentPreviewController = new DocumentPreviewController(file);
+            this._documentPreviewController.getPreviewData().then(result =>{
+
+                this.el.imgPanelDocumentPreview.src = result.src;
+                this.el.infoPanelDocumentPreview.innerHTML = result.info;
+                this.el.imagePanelDocumentPreview.show();
+                this.el.filePanelDocumentPreview.hide();
+
+                this.el.panelDocumentPreview.css({
+                    'height': 'calc(100% - 120px)'
+                });
 
             }).catch(err=>{
 
-                console.log('err', err);
+                this.el.panelDocumentPreview.css({
+                    'height': 'calc(100% - 120px)'
+                });
+
+                console.log(file.type);
+
+                switch(file.type) {
+
+                    case 'application/vnd.ms-excel':
+                    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                        this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-xls';
+                    break;
+
+                    case 'application/vnd.ms-powerpoint':
+                    case 'application/vnd.openxmlformats-officedocument.presentationtml.presentation':
+                        this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-ppt';
+                    break;
+
+                    case 'application/msword':
+                    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 
+                        this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-doc';
+                    break;
+                    
+                    default:
+                        this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-generic';
+                        break;
+                }
+                this.el.filenamePanelDocumentPreview.innerHTML = file.name;
+                this.el.imagePanelDocumentPreview.hide();
+                this.el.filePanelDocumentPreview.show();
 
             });
 
@@ -314,18 +357,35 @@ export  class WhatsAppController {
 
             this.el.recordMicrophone.show();
             this.el.btnSendMicrophone.hide();
-            this.startRecordMicrophoneTimer();
+
+            this._microphoneController = new MicrophoneController();
+
+            this._microphoneController.on('ready', audio=>{
+
+                console.log('ready event');
+
+                this._microphoneController.startRecorder();
+
+            });
+
+            this._microphoneController.on('recordtimer', timer=>{
+
+                this.el.recordMicrophoneTimer.innerHTML = Format.toTime(timer);
+
+            });
 
         });
 
         this.el.btnCancelMicrophone.on('click', e=>{
 
+            this._microphoneController.stopRecorder();
             this.closeRecordMicrophone();
 
         });
 
         this.el.btnFinishMicrophone.on('click', e=>{
 
+            this._microphoneController.stopRecorder();
             this.closeRecordMicrophone();
 
         });
@@ -413,24 +473,12 @@ export  class WhatsAppController {
 
     }
 
-    startRecordMicrophoneTimer(){
-
-        let start = Date.now();
-
-        this._recordMicrophoneInterval = setInterval(()=>{
-
-            Date.now() - start
-            this.el.recordMicrophoneTimer.innerHTML = Format.toTime(Date.now() - start);
-
-        }, 100);
-
-    }
 
     closeRecordMicrophone(){
 
         this.el.btnSendMicrophone.show();
         this.el.recordMicrophone.hide();
-        clearInterval(this._recordMicrophoneInterval);
+        
     }
 
     closeAllMainPanel(){
@@ -442,10 +490,6 @@ export  class WhatsAppController {
     }
 
     closeMenuAttach(e){
-
-        if(!this.el.menuAttach.hasClass('open')){
-            return true;
-        }
 
         document.removeEventListener('click', this.closeMenuAttach);
         this.el.menuAttach.removeClass('open');
